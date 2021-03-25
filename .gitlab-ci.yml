@@ -1,0 +1,59 @@
+image: node:latest
+services:
+  - docker:stable
+stages:
+  - install
+  - code-lint
+  - build-static
+  - deploy-test
+
+cache:
+  key: docker-cache
+  paths:
+    - node_modules
+
+install:
+  stage: install
+  tags:
+    - docker
+  script:
+    - npm config set sass_binary_site https://npm.taobao.org/mirrors/node-sass/
+    - npm install --registry=http://registry.npm.taobao.org
+code-lint:
+  stage: code-lint
+  script: echo '没有lint指令'
+  
+coverage:
+  stage: code-lint
+  script: echo 'Code coverage'
+  coverage: '/Code coverage: \d+\.\d+/'
+
+build:
+  stage: build-static
+  tags:
+    - docker
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+deploy-test-image:
+  image: docker:stable
+  tags:
+    - docker
+  stage: deploy-test
+  script:
+    # - docker login -u $HarborUserName -p $HarborPwd $HarborServe # 登录镜像仓库
+    - docker build -t viteapp . # 构建镜像
+    # 如果有容器名为$APP_CONTAINER_NAME的容器在运行则强行上删除
+    - if [ $(docker ps -aq --filter name=vitedemo) ]; then docker rm -f vitedemo; docker image rm -f viteapp;fi
+    # 使用8001端口,镜像名为$APP_CONTAINER_NAME的后台方式 运行一个镜像
+    - docker run -d -p 8001:80 --name vitedemo viteapp
+    
+    # 登录镜像仓库
+    # - docker login -u $HarborUserName -p $HarborPwd $HarborServe # 登录镜像仓库
+    # - docker push $ImgName # 推送镜像
+    # - docker rmi $ImgName # 删除本地镜像
+
+    - echo 'deploy docker image success. visit http://192.168.130.128:8001'
+  # when: manual # 手动执行,需要点击
